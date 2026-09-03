@@ -34,8 +34,8 @@ jobs:
             ext: tar.xz
             msys2: ""
           - target: linux-aarch64-musl
-            runner: ubuntu-24.04-arm
-            container: "alpine:3.21"
+            runner: ubuntu-latest
+            container: "muslcc/x86_64:aarch64-linux-musl"
             llvm_targets: "AArch64"
             ext: tar.xz
             msys2: ""
@@ -172,7 +172,7 @@ jobs:
 
           # Install dependencies based on distro
           if command -v apk > /dev/null 2>&1; then
-            apk add --no-cache cmake ninja gcc g++ musl-dev linux-headers python3 git bash
+            apk add --no-cache cmake ninja gcc g++ musl-dev linux-headers python3 git bash curl
           elif command -v apt-get > /dev/null 2>&1; then
             apt-get update -qq
             apt-get install -qq -y cmake ninja-build gcc g++ python3 git
@@ -193,8 +193,12 @@ jobs:
             esac
           fi
 
-          git clone --depth 1 --branch "llvmorg-${VERSION}" \
-            https://github.com/llvm/llvm-project /tmp/llvm-project
+          for _clone_try in 1 2 3; do
+            git clone --depth 1 --branch "llvmorg-${VERSION}" \
+              https://github.com/llvm/llvm-project /tmp/llvm-project && break
+            [ "$_clone_try" = 3 ] && exit 1
+            rm -rf /tmp/llvm-project; sleep 30
+          done
 
           # Older LLVM on musl can miss uintptr_t include in Signals.h.
           if [ "${TARGET#linux-}" != "${TARGET}" ] && [ "${TARGET%-musl}" != "${TARGET}" ] && [ "${MAJOR}" -le 13 ]; then
@@ -208,17 +212,54 @@ jobs:
           if [ "${TARGET#linux-}" != "${TARGET}" ] && [ "${TARGET%-musl}" != "${TARGET}" ] && [ "${MAJOR}" -le 15 ]; then
             sed -i 's/::lseek64(/::lseek(/g' /tmp/llvm-project/llvm/lib/Support/raw_ostream.cpp
           fi
-          # LLVM ≤ 17 sancov.cpp uses {{ClIgnorelist}} brace-init where newer BSD
-          # sysroot libc++ marks the matching basic_string template constructor explicit,
-          # causing a copy-initialization error.  Replace with direct std::string().
+          # LLVM ≤ 11 benchmark_register.h uses std::numeric_limits without including
+          # <limits>; newer GCC/musl-libc++ no longer pull it in transitively.
+          if [ "${MAJOR}" -le 11 ]; then
+            sed -i '/#include <vector>/a #include <limits>' \
+              /tmp/llvm-project/llvm/utils/benchmark/src/benchmark_register.h 2>/dev/null || true
+          fi
+
+          # LLVM ≤ 17 sancov.cpp uses {{ClBlacklist}} (LLVM ≤ 14) or {{ClIgnorelist}}
+          # (LLVM ≥ 15) brace-init where newer BSD sysroot libc++ marks the
+          # basic_string range constructor explicit, causing a copy-initialization
+          # error. Patch all three forms (double-brace Blacklist, double-brace
+          # Ignorelist, single-brace Ignorelist).
           case "$TARGET" in
             freebsd-*|netbsd-*|openbsd-*)
               if [ "${MAJOR}" -le 17 ]; then
-                sed -i 's/SpecialCaseList::createOrDie({{ClIgnorelist}}/SpecialCaseList::createOrDie({std::string(ClIgnorelist)}/' \
+                sed -i \
+                  -e 's/SpecialCaseList::createOrDie({{ClBlacklist}}/SpecialCaseList::createOrDie({std::string(ClBlacklist)}/' \
+                  -e 's/SpecialCaseList::createOrDie({{ClIgnorelist}}/SpecialCaseList::createOrDie({std::string(ClIgnorelist)}/' \
+                  -e 's/SpecialCaseList::createOrDie({ClIgnorelist}/SpecialCaseList::createOrDie({std::string(ClIgnorelist)}/' \
                   /tmp/llvm-project/llvm/tools/sancov/sancov.cpp 2>/dev/null || true
               fi
               ;;
           esac
+
+          # ── aarch64-musl cross-compilation (when running on x86_64 host) ──
+          # The muslcc/x86_64:aarch64-linux-musl container has the aarch64 cross-compiler
+          # pre-installed at /bin/gcc and /bin/g++.  After `apk add gcc g++`, Alpine's
+          # native x86_64 GCC lands at /usr/bin/gcc (higher in PATH), leaving /bin/gcc
+          # as the cross-compiler.  We use /bin/gcc for the main LLVM build and the
+          # default gcc for native tblgen.
+          MUSL_AARCH64_CROSS=false
+          musl_cross_cmake_args=""
+          if [ "$TARGET" = "linux-aarch64-musl" ] && [ "$(uname -m)" = "x86_64" ]; then
+            MUSL_AARCH64_CROSS=true
+            musl_cross_cmake_args="-DCMAKE_C_COMPILER=/bin/gcc"
+            musl_cross_cmake_args="$musl_cross_cmake_args -DCMAKE_CXX_COMPILER=/bin/g++"
+            musl_cross_cmake_args="$musl_cross_cmake_args -DCMAKE_SYSTEM_NAME=Linux"
+            musl_cross_cmake_args="$musl_cross_cmake_args -DCMAKE_SYSTEM_PROCESSOR=aarch64"
+            musl_cross_cmake_args="$musl_cross_cmake_args -DLLVM_HOST_TRIPLE=aarch64-linux-musl"
+            musl_cross_cmake_args="$musl_cross_cmake_args -DLLVM_TABLEGEN=/tmp/llvm-native/bin/llvm-tblgen"
+            musl_cross_cmake_args="$musl_cross_cmake_args -DCLANG_TABLEGEN=/tmp/llvm-native/bin/clang-tblgen"
+            musl_cross_cmake_args="$musl_cross_cmake_args -DLLVM_ENABLE_ZLIB=OFF"
+            musl_cross_cmake_args="$musl_cross_cmake_args -DLLVM_ENABLE_LIBXML2=OFF"
+            musl_cross_cmake_args="$musl_cross_cmake_args -DLLVM_ENABLE_ZSTD=OFF"
+            musl_cross_cmake_args="$musl_cross_cmake_args -DLLVM_INCLUDE_TESTS=OFF"
+            musl_cross_cmake_args="$musl_cross_cmake_args -DCLANG_INCLUDE_TESTS=OFF"
+            musl_cross_cmake_args="$musl_cross_cmake_args -DLLVM_BUILD_EXAMPLES=OFF"
+          fi
 
           # ── BSD cross-compilation: download sysroot ──
           # Helper: download URL to a file with retries, then extract.
@@ -315,8 +356,8 @@ jobs:
               ;;
           esac
 
-          # ── BSD cross-compilation: build native tablegen ──
-          if [ "$BSD_CROSS" = "true" ]; then
+          # ── Cross-compilation: build native tablegen ──
+          if [ "$BSD_CROSS" = "true" ] || [ "$MUSL_AARCH64_CROSS" = "true" ]; then
             cmake -S /tmp/llvm-project/llvm -B /tmp/llvm-native -G Ninja \
               -DCMAKE_BUILD_TYPE=Release \
               -DLLVM_ENABLE_PROJECTS="clang" \
@@ -383,6 +424,26 @@ jobs:
                 extra_flags="$extra_flags -march=i586"
                 ;;
             esac
+            # NetBSD cross-builds: no libgcc_s.so in the cross sysroot means
+            # __register_frame/__deregister_frame/_Unwind_Resume are unresolved
+            # when linking shared libraries (.so) or executables that pull in
+            # RuntimeDyld (LLVM ≤ 11 uses RuntimeDyld; LLVM ≥ 12 switched to
+            # JITLink which doesn't need these symbols).
+            # Fix: add -lgcc_s via CMAKE_CXX_STANDARD_LIBRARIES so it appears
+            # after all static archives in every C++ link command.
+            # Also disable shared-library, test, and example targets.
+            case "$TARGET" in
+              netbsd-*)
+                bsd_cmake_args="$bsd_cmake_args -DCLANG_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_TESTS=OFF"
+                bsd_cmake_args="$bsd_cmake_args -DCLANG_TOOL_CLANG_SHLIB_BUILD=OFF"
+                bsd_cmake_args="$bsd_cmake_args -DLLVM_BUILD_LLVM_DYLIB=OFF -DLLVM_LINK_LLVM_DYLIB=OFF"
+                bsd_cmake_args="$bsd_cmake_args -DLLVM_ENABLE_PLUGINS=OFF"
+                bsd_cmake_args="$bsd_cmake_args -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_BUILD_EXAMPLES=OFF"
+                if [ "${MAJOR}" -le 11 ]; then
+                  bsd_cmake_args="$bsd_cmake_args -DCMAKE_CXX_STANDARD_LIBRARIES=-lgcc_s"
+                fi
+                ;;
+            esac
             # OpenBSD has no separate librt; also work around duplicate libc++
             # symbols from libexecinfo.a in the sysroot. OpenBSD ships
             # libc++abi.a as a non-PIC archive, so we can't link any shared
@@ -410,6 +471,7 @@ jobs:
             $cmake_args \
             $cmake_extra_args \
             $bsd_cmake_args \
+            $musl_cross_cmake_args \
             -DCMAKE_C_FLAGS="$extra_flags" \
             -DCMAKE_CXX_FLAGS="$extra_flags" \
             -DCMAKE_EXE_LINKER_FLAGS="$bsd_linker_flags" \
@@ -424,6 +486,11 @@ jobs:
           cmake --build /tmp/llvm-build --target install --parallel
           BUILDSCRIPT
 
+          for _i in 1 2 3 4 5; do
+            docker pull "$CONTAINER" && break
+            [ "$_i" = 5 ] && exit 1
+            sleep 60
+          done
           docker run --rm \
             -v "$RUNNER_TEMP:/runner-temp" \
             -e VERSION="$VERSION" \
@@ -577,8 +644,32 @@ jobs:
         if: steps.docker-build.outputs.done != 'true' && steps.check-official.outputs.source == 'build'
         shell: bash
         run: |
-          git clone --depth 1 --branch "llvmorg-${{ steps.version.outputs.version }}" \
-            https://github.com/llvm/llvm-project "$RUNNER_TEMP/llvm-project"
+          for _i in 1 2 3; do
+            git clone --depth 1 --branch "llvmorg-${{ steps.version.outputs.version }}" \
+              https://github.com/llvm/llvm-project "$RUNNER_TEMP/llvm-project" && break
+            [ "$_i" = 3 ] && exit 1
+            rm -rf "$RUNNER_TEMP/llvm-project"; sleep 30
+          done
+
+      # ── Patch source (Windows MSVC, LLVM ≤ 11) ─────────────────────
+      - name: Patch LLVM source (Windows)
+        if: >-
+          steps.docker-build.outputs.done != 'true' &&
+          steps.check-official.outputs.source == 'build' &&
+          runner.os == 'Windows'
+        shell: bash
+        run: |
+          MAJOR="${{ steps.version.outputs.major }}"
+          if [ "$MAJOR" -le 11 ]; then
+            # MSVC 2022 STL changed is_trivially_copyable behavior; the static_assert
+            # in type_traits.h checking LLVM vs std agreement fires and prevents build.
+            sed -i 's/#ifdef HAVE_STD_IS_TRIVIALLY_COPYABLE/#if 0/' \
+              "$RUNNER_TEMP/llvm-project/llvm/include/llvm/Support/type_traits.h" 2>/dev/null || true
+            # benchmark_register.h missing #include <limits> for std::numeric_limits
+            # (affects both MSVC and MinGW/GNU builds on Windows).
+            sed -i 's/#include <vector>/#include <vector>\n#include <limits>/' \
+              "$RUNNER_TEMP/llvm-project/llvm/utils/benchmark/src/benchmark_register.h" 2>/dev/null || true
+          fi
 
       # ── Configure ──────────────────────────────────────────────────
       - name: Configure LLVM (Unix)
@@ -628,8 +719,14 @@ jobs:
           matrix.target == 'windows-aarch64-msvc'
         shell: bash
         run: |
+          MAJOR="${{ steps.version.outputs.major }}"
+          cmake_args=()
+          if [ "$MAJOR" -le 11 ]; then
+            cmake_args+=(-DCMAKE_POLICY_VERSION_MINIMUM=3.5)
+          fi
           cmake -S "$RUNNER_TEMP/llvm-project/llvm" -B "$RUNNER_TEMP/llvm-build" \
             -G "Visual Studio 17 2022" -A ARM64 \
+            "${cmake_args[@]}" \
             -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/llvm-install" \
             -DLLVM_ENABLE_PROJECTS="clang;lld" \
             -DLLVM_TARGETS_TO_BUILD="${{ matrix.llvm_targets }}" \
@@ -692,6 +789,15 @@ jobs:
           SRC_ROOT="$(cygpath -u "$RUNNER_TEMP")/llvm-project"
           BUILD_ROOT="$(cygpath -u "$RUNNER_TEMP")/llvm-build"
           INSTALL_ROOT="$(cygpath -u "$RUNNER_TEMP")/llvm-install"
+          # Install 64-bit LLD (mingw-w64-x86_64-lld) to avoid 32-bit GNU ld's
+          # 4 GB VA-space OOM when linking libclang.dll at -O0.
+          # Add /mingw64/bin to PATH so GCC finds ld.lld.exe there via -fuse-ld=lld;
+          # Windows resolves DLL deps for ld.lld.exe from that same directory.
+          # Explicitly set 32-bit compilers so the PATH prepend does not pick 64-bit GCC.
+          # LLVM_ENABLE_DUMP=ON marks dump() methods __attribute__((used)) to prevent
+          # --gc-sections from eliminating them and causing undefined-symbol link errors.
+          pacman -S --noconfirm --needed mingw-w64-x86_64-lld
+          export PATH="/mingw64/bin:$PATH"
           cmake_args=()
           if [ "$MAJOR" -le 11 ]; then
             cmake_args+=(-DCMAKE_POLICY_VERSION_MINIMUM=3.5)
@@ -699,14 +805,24 @@ jobs:
           cmake -S "$SRC_ROOT/llvm" -B "$BUILD_ROOT" -G Ninja \
             "${cmake_args[@]}" \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS_RELEASE="-O0 -DNDEBUG" \
+            -DCMAKE_C_FLAGS_RELEASE="-O0 -DNDEBUG" \
             -DCMAKE_INSTALL_PREFIX="$INSTALL_ROOT" \
             -DCMAKE_CXX_FLAGS="-include cstdint" \
-            -DCMAKE_CXX_FLAGS_RELEASE="-O1 -DNDEBUG" \
+            -DCMAKE_C_COMPILER=/mingw32/bin/gcc.exe \
+            -DCMAKE_CXX_COMPILER=/mingw32/bin/g++.exe \
+            -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
+            -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld" \
             -DLLVM_ENABLE_PROJECTS="clang;lld" \
             -DLLVM_TARGETS_TO_BUILD="${{ matrix.llvm_targets }}" \
             -DLLVM_ENABLE_LIBXML2=OFF \
             -DLLVM_ENABLE_TERMINFO=OFF \
-            -DLLVM_HOST_TRIPLE="i686-w64-windows-gnu"
+            -DLLVM_HOST_TRIPLE="i686-w64-windows-gnu" \
+            -DLLVM_ENABLE_DUMP=ON
+          # Patch out LLVM-injected -O levels from ninja files.
+          find "$BUILD_ROOT" -name "*.ninja" | xargs sed -i \
+            's/-O2/-O0/g; s/-O3/-O0/g; s/-O1/-O0/g'
 
       # ── Build ──────────────────────────────────────────────────────
       - name: Build LLVM (MSYS2)
@@ -716,6 +832,8 @@ jobs:
           matrix.msys2 != ''
         shell: msys2 {0}
         run: |
+          # For windows-i686-gnu: /mingw64/bin must be in PATH so GCC finds ld.lld.exe.
+          export PATH="/mingw64/bin:$PATH"
           BUILD_ROOT="$(cygpath -u "$RUNNER_TEMP")/llvm-build"
           cmake --build "$BUILD_ROOT" --target install --parallel
 
@@ -884,3 +1002,101 @@ jobs:
           files: release-assets/*
           draft: false
           prerelease: false
+
+  # Consumer smoke test: reproduce how llvm-pm (and any `llvm-sys` user) consumes a
+  # release, so consumer-only breakage is caught here instead of downstream. Covers
+  # the classes of problems that previously only surfaced in llvm-pm's CI:
+  #   * the action exporting the wrong LLVM_SYS_<key>_PREFIX (LLVM 18 must map to
+  #     181, not 180 — the llvm-sys crate reads that exact variable name)
+  #   * archives missing link libraries (llvm-sys fails to link)
+  #   * archives missing runtime libraries (macOS @rpath libunwind, Linux libtinfo)
+  #   * Git Bash's GNU link.exe shadowing MSVC's linker on Windows
+  # Runs after `release` so the action downloads the freshly published archive.
+  smoke:
+    name: Smoke llvm-sys / ${{ matrix.target }}
+    needs: release
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: linux-x86_64, runner: ubuntu-latest }
+          - { target: linux-aarch64, runner: ubuntu-24.04-arm }
+          - { target: macos-aarch64, runner: macos-latest }
+          - { target: macos-x86_64, runner: macos-15-intel }
+          - { target: windows-msvc, runner: windows-latest }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse version
+        id: ver
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#b}" >> "$GITHUB_OUTPUT"
+
+      # Windows: activate MSVC and drop Git Bash's GNU link.exe so it does not shadow
+      # MSVC's linker (the exact failure llvm-pm hit: "/usr/bin/link: extra operand").
+      - name: Set up MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Remove GNU link.exe shadowing MSVC linker (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: rm -f "/c/Program Files/Git/usr/bin/link.exe" "/usr/bin/link.exe" "/usr/bin/link" 2>/dev/null || true
+
+      # Install the just-released archive via THIS action, with fallback disabled so
+      # the prebuilt archive itself is tested (not an apt/brew/source substitute).
+      - name: Install LLVM via this action (prebuilt only)
+        uses: ./
+        with:
+          version: ${{ steps.ver.outputs.version }}
+          target: ${{ matrix.target }}
+          fallback: 'false'
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Verify llvm-sys consumption
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.ver.outputs.version }}"
+          MAJOR="${VERSION%%.*}"
+          MINOR="$(echo "$VERSION" | cut -d. -f2)"
+          # Independent ground truth for the llvm-sys crate key; MUST match the
+          # derivation in action.yml. LLVM 10..17 -> <MAJOR>0; LLVM 18+ -> <MAJOR><MINOR>.
+          if [ "$MAJOR" -le 17 ]; then KEY="${MAJOR}0"; else KEY="${MAJOR}${MINOR}"; fi
+          echo "LLVM ${VERSION} -> llvm-sys key ${KEY}"
+
+          # (1) Env contract: the action MUST export LLVM_SYS_<key>_PREFIX. Checked
+          # explicitly because llvm-sys would otherwise silently fall back to the
+          # llvm-config the action also puts on PATH, masking a wrong-key regression.
+          VAR="LLVM_SYS_${KEY}_PREFIX"
+          PREFIX="${!VAR:-}"
+          if [ -z "$PREFIX" ]; then
+            echo "::error::${VAR} is not set by the action; llvm-sys for LLVM ${VERSION} reads exactly this variable."
+            env | grep '^LLVM_SYS_' || echo "(no LLVM_SYS_* variables are set)"
+            exit 1
+          fi
+          if [ "${RUNNER_OS}" = "Windows" ]; then PREFIX="$(cygpath -u "$PREFIX")"; fi
+          if [ ! -f "$PREFIX/bin/llvm-config" ] && [ ! -f "$PREFIX/bin/llvm-config.exe" ]; then
+            echo "::error::${VAR}=${PREFIX} has no bin/llvm-config"; exit 1
+          fi
+          echo "env contract OK: ${VAR}=${PREFIX}"
+
+          # (2) End-to-end: build AND run a real llvm-sys consumer. Compiling links
+          # against the archive's libraries; running resolves its runtime libraries.
+          crate="ci/llvmsys-smoke"
+          {
+            echo '[package]'
+            echo 'name = "llvmsys-smoke"'
+            echo 'version = "0.0.0"'
+            echo 'edition = "2021"'
+            echo 'publish = false'
+            echo ''
+            echo '[dependencies]'
+            echo "llvm-sys = \"${KEY}\""
+          } > "${crate}/Cargo.toml"
+          ( cd "${crate}" && cargo run )
