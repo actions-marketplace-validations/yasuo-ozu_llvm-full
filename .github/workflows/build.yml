@@ -262,16 +262,49 @@ jobs:
           fi
 
           # ── BSD cross-compilation: download sysroot ──
-          # Helper: download URL to a file with retries, then extract.
+          # Helper: download a set from the first working mirror, then extract.
           # Piped (curl | tar) downloads can't retry mid-stream and OpenBSD's
           # CDN sometimes drops HTTP/2 streams. Use --http1.1 + retries.
+          # EOL releases move from the main mirrors to the archive hosts, so
+          # each call lists the main URL followed by its archive fallback.
+          # NetBSD 10.1 is gone from cdn.netbsd.org and archive.netbsd.org
+          # throttles CI runners (HTTP 402 / truncated transfers), so NetBSD
+          # sets come from official third-party mirrors that still carry it.
+          # FreeBSD likewise: archive.freebsd.org refuses connections from CI
+          # runners, so mirrors that still carry the release are tried first.
           fetch_and_extract() {
-            url="$1"; sysroot="$2"; mode="$3"  # mode: J (xz) or z (gz)
+            sysroot="$1"; mode="$2"; shift 2  # mode: J (xz) or z (gz); rest: mirror URLs
             tmp="/tmp/bsd-download.tar"
-            curl -fsSL --http1.1 --retry 8 --retry-all-errors --retry-delay 5 --max-time 900 \
-              "$url" -o "$tmp"
-            tar "x${mode}f" "$tmp" -C "$sysroot"
-            rm -f "$tmp"
+            # Mirrors sometimes drop connections mid-transfer, so retry with -C -
+            # to resume the partial file instead of restarting. A mirror that
+            # makes no progress 3 times in a row (404/402, unreachable host)
+            # is abandoned for the next one.
+            for url in "$@"; do
+              rm -f "$tmp"
+              stalls=0
+              for attempt in $(seq 1 60); do
+                before=$(stat -c %s "$tmp" 2>/dev/null || echo 0)
+                rc=0
+                curl -fsSL --http1.1 -C - --connect-timeout 30 --max-time 900 "$url" -o "$tmp" || rc=$?
+                if [ "$rc" -eq 0 ]; then
+                  tar "x${mode}f" "$tmp" -C "$sysroot"
+                  rm -f "$tmp"
+                  return 0
+                fi
+                after=$(stat -c %s "$tmp" 2>/dev/null || echo 0)
+                if [ "$after" -gt "$before" ]; then
+                  stalls=0
+                else
+                  stalls=$((stalls + 1))
+                  [ "$stalls" -ge 3 ] && break
+                fi
+                echo "curl exit $rc on attempt $attempt for $url; retrying"
+                sleep 5
+              done
+              echo "::warning::Download failed: $url"
+            done
+            echo "::error::All mirrors failed for this sysroot set"
+            return 1
           }
           BSD_CROSS=false
           BSD_SYSROOT=""
@@ -284,15 +317,24 @@ jobs:
               BSD_HOST_TRIPLE="x86_64-unknown-freebsd14.3"
               BSD_SYSROOT="/tmp/bsd-sysroot"
               mkdir -p "$BSD_SYSROOT"
-              fetch_and_extract "https://download.freebsd.org/releases/amd64/14.3-RELEASE/base.txz" "$BSD_SYSROOT" J
+              fetch_and_extract "$BSD_SYSROOT" J \
+                "https://download.freebsd.org/releases/amd64/14.3-RELEASE/base.txz" \
+                "https://ftp.jaist.ac.jp/pub/FreeBSD/releases/amd64/14.3-RELEASE/base.txz" \
+                "https://mirror.math.princeton.edu/pub/FreeBSD/releases/amd64/14.3-RELEASE/base.txz" \
+                "https://archive.freebsd.org/old-releases/amd64/14.3-RELEASE/base.txz"
               ;;
             freebsd-i686)
+              # 13.5 (FreeBSD 13 is EOL) is no longer on any reachable mirror.
               BSD_CROSS=true
               BSD_CMAKE_SYSTEM_NAME="FreeBSD"
-              BSD_HOST_TRIPLE="i386-unknown-freebsd13.5"
+              BSD_HOST_TRIPLE="i386-unknown-freebsd14.3"
               BSD_SYSROOT="/tmp/bsd-sysroot"
               mkdir -p "$BSD_SYSROOT"
-              fetch_and_extract "https://download.freebsd.org/releases/i386/13.5-RELEASE/base.txz" "$BSD_SYSROOT" J
+              fetch_and_extract "$BSD_SYSROOT" J \
+                "https://download.freebsd.org/releases/i386/14.3-RELEASE/base.txz" \
+                "https://ftp.jaist.ac.jp/pub/FreeBSD/releases/i386/14.3-RELEASE/base.txz" \
+                "https://mirror.math.princeton.edu/pub/FreeBSD/releases/i386/14.3-RELEASE/base.txz" \
+                "https://archive.freebsd.org/old-releases/i386/14.3-RELEASE/base.txz"
               ;;
             netbsd-x86_64)
               BSD_CROSS=true
@@ -301,7 +343,10 @@ jobs:
               BSD_SYSROOT="/tmp/bsd-sysroot"
               mkdir -p "$BSD_SYSROOT"
               for s in base comp; do
-                fetch_and_extract "https://cdn.netbsd.org/pub/NetBSD/NetBSD-10.1/amd64/binary/sets/${s}.tar.xz" "$BSD_SYSROOT" J
+                fetch_and_extract "$BSD_SYSROOT" J \
+                  "https://ftp.fau.de/netbsd/NetBSD-10.1/amd64/binary/sets/${s}.tar.xz" \
+                  "https://mirror.math.princeton.edu/pub/NetBSD/NetBSD-10.1/amd64/binary/sets/${s}.tar.xz" \
+                  "https://archive.netbsd.org/pub/NetBSD-archive/NetBSD-10.1/amd64/binary/sets/${s}.tar.xz"
               done
               ;;
             netbsd-aarch64)
@@ -311,7 +356,10 @@ jobs:
               BSD_SYSROOT="/tmp/bsd-sysroot"
               mkdir -p "$BSD_SYSROOT"
               for s in base comp; do
-                fetch_and_extract "https://cdn.netbsd.org/pub/NetBSD/NetBSD-10.1/evbarm-aarch64/binary/sets/${s}.tar.xz" "$BSD_SYSROOT" J
+                fetch_and_extract "$BSD_SYSROOT" J \
+                  "https://ftp.fau.de/netbsd/NetBSD-10.1/evbarm-aarch64/binary/sets/${s}.tar.xz" \
+                  "https://mirror.math.princeton.edu/pub/NetBSD/NetBSD-10.1/evbarm-aarch64/binary/sets/${s}.tar.xz" \
+                  "https://archive.netbsd.org/pub/NetBSD-archive/NetBSD-10.1/evbarm-aarch64/binary/sets/${s}.tar.xz"
               done
               ;;
             netbsd-i686)
@@ -321,7 +369,10 @@ jobs:
               BSD_SYSROOT="/tmp/bsd-sysroot"
               mkdir -p "$BSD_SYSROOT"
               for s in base comp; do
-                fetch_and_extract "https://cdn.netbsd.org/pub/NetBSD/NetBSD-10.1/i386/binary/sets/${s}.tgz" "$BSD_SYSROOT" z
+                fetch_and_extract "$BSD_SYSROOT" z \
+                  "https://ftp.fau.de/netbsd/NetBSD-10.1/i386/binary/sets/${s}.tgz" \
+                  "https://mirror.math.princeton.edu/pub/NetBSD/NetBSD-10.1/i386/binary/sets/${s}.tgz" \
+                  "https://archive.netbsd.org/pub/NetBSD-archive/NetBSD-10.1/i386/binary/sets/${s}.tgz"
               done
               ;;
             openbsd-x86_64)
@@ -331,7 +382,9 @@ jobs:
               BSD_SYSROOT="/tmp/bsd-sysroot"
               mkdir -p "$BSD_SYSROOT"
               for s in base comp; do
-                fetch_and_extract "https://cdn.openbsd.org/pub/OpenBSD/7.7/amd64/${s}77.tgz" "$BSD_SYSROOT" z
+                fetch_and_extract "$BSD_SYSROOT" z \
+                  "https://cdn.openbsd.org/pub/OpenBSD/7.7/amd64/${s}77.tgz" \
+                  "https://ftp.openbsd.org/pub/OpenBSD/7.7/amd64/${s}77.tgz"
               done
               ;;
             openbsd-aarch64)
@@ -341,7 +394,9 @@ jobs:
               BSD_SYSROOT="/tmp/bsd-sysroot"
               mkdir -p "$BSD_SYSROOT"
               for s in base comp; do
-                fetch_and_extract "https://cdn.openbsd.org/pub/OpenBSD/7.7/arm64/${s}77.tgz" "$BSD_SYSROOT" z
+                fetch_and_extract "$BSD_SYSROOT" z \
+                  "https://cdn.openbsd.org/pub/OpenBSD/7.7/arm64/${s}77.tgz" \
+                  "https://ftp.openbsd.org/pub/OpenBSD/7.7/arm64/${s}77.tgz"
               done
               ;;
             openbsd-i686)
@@ -351,7 +406,9 @@ jobs:
               BSD_SYSROOT="/tmp/bsd-sysroot"
               mkdir -p "$BSD_SYSROOT"
               for s in base comp; do
-                fetch_and_extract "https://cdn.openbsd.org/pub/OpenBSD/7.7/i386/${s}77.tgz" "$BSD_SYSROOT" z
+                fetch_and_extract "$BSD_SYSROOT" z \
+                  "https://cdn.openbsd.org/pub/OpenBSD/7.7/i386/${s}77.tgz" \
+                  "https://ftp.openbsd.org/pub/OpenBSD/7.7/i386/${s}77.tgz"
               done
               ;;
           esac
@@ -692,6 +749,29 @@ jobs:
             -DLLVM_TARGETS_TO_BUILD="${{ matrix.llvm_targets }}" \
             -DLLVM_ENABLE_TERMINFO=OFF
 
+      - name: Detect Visual Studio generator
+        if: >-
+          steps.docker-build.outputs.done != 'true' &&
+          steps.check-official.outputs.source == 'build' &&
+          endsWith(matrix.target, '-msvc')
+        shell: bash
+        run: |
+          # Runner images move to newer Visual Studio releases over time
+          # (windows-latest / windows-11-arm switched VS 2022 -> 2026), so pick
+          # the generator for whichever VS is installed instead of hard-coding it.
+          vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
+          vs_major="$("$vswhere" -latest -products '*' -property installationVersion | cut -d. -f1 | tr -d '\r')"
+          case "$vs_major" in
+            17) gen="Visual Studio 17 2022" ;;
+            18) gen="Visual Studio 18 2026" ;;
+            *)
+              echo "::error::Unsupported Visual Studio major version '${vs_major}'"
+              exit 1
+              ;;
+          esac
+          echo "Using CMake generator: $gen ($(cmake --version | head -1))"
+          echo "VS_GENERATOR=$gen" >> "$GITHUB_ENV"
+
       - name: Configure LLVM (Windows MSVC x64)
         if: >-
           steps.docker-build.outputs.done != 'true' &&
@@ -705,7 +785,7 @@ jobs:
             toolset_args=(-T v142)
           fi
           cmake -S "$RUNNER_TEMP/llvm-project/llvm" -B "$RUNNER_TEMP/llvm-build" \
-            -G "Visual Studio 17 2022" -A x64 \
+            -G "$VS_GENERATOR" -A x64 \
             "${toolset_args[@]}" \
             -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/llvm-install" \
             -DLLVM_ENABLE_PROJECTS="clang;lld" \
@@ -725,7 +805,7 @@ jobs:
             cmake_args+=(-DCMAKE_POLICY_VERSION_MINIMUM=3.5)
           fi
           cmake -S "$RUNNER_TEMP/llvm-project/llvm" -B "$RUNNER_TEMP/llvm-build" \
-            -G "Visual Studio 17 2022" -A ARM64 \
+            -G "$VS_GENERATOR" -A ARM64 \
             "${cmake_args[@]}" \
             -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/llvm-install" \
             -DLLVM_ENABLE_PROJECTS="clang;lld" \
@@ -745,7 +825,7 @@ jobs:
             toolset_args=(-T v142)
           fi
           cmake -S "$RUNNER_TEMP/llvm-project/llvm" -B "$RUNNER_TEMP/llvm-build" \
-            -G "Visual Studio 17 2022" -A Win32 \
+            -G "$VS_GENERATOR" -A Win32 \
             "${toolset_args[@]}" \
             -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/llvm-install" \
             -DLLVM_ENABLE_PROJECTS="clang;lld" \

@@ -472,7 +472,16 @@ runs:
         if [ "${LLVM_MAJOR}" -le 11 ]; then
           toolset_args=(-T v142)
         fi
-        cmake -S "$src_root/llvm" -B "$build_root" -G "Visual Studio 17 2022" -A x64 \
+        # Pick the generator for the installed VS (runner images move from
+        # VS 2022 to 2026 over time).
+        vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
+        vs_major="$("$vswhere" -latest -products '*' -property installationVersion | cut -d. -f1 | tr -d '\r')"
+        case "$vs_major" in
+          17) vs_generator="Visual Studio 17 2022" ;;
+          18) vs_generator="Visual Studio 18 2026" ;;
+          *) echo "::error::Unsupported Visual Studio major version '${vs_major}'"; exit 1 ;;
+        esac
+        cmake -S "$src_root/llvm" -B "$build_root" -G "$vs_generator" -A x64 \
           "${toolset_args[@]}" \
           -DCMAKE_INSTALL_PREFIX="$install_root_u" \
           -DLLVM_ENABLE_PROJECTS="clang;lld" \
