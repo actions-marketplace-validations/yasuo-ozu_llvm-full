@@ -6,6 +6,7 @@ Prebuilt LLVM archives with full C/C++ API, clang, and LLD for multiple platform
 
 | Version | Status |
 |--------:|--------|
+| 23.1.0 | [![Build][b-23.1.0]][w-23.1.0] |
 | 22.1.0 | [![Build][b-22.1.0]][w-22.1.0] |
 | 21.1.4 | [![Build][b-21.1.4]][w-21.1.4] |
 | 20.1.8 | [![Build][b-20.1.8]][w-20.1.8] |
@@ -39,6 +40,7 @@ Prebuilt LLVM archives with full C/C++ API, clang, and LLD for multiple platform
 
 | Version | x86_64 | AArch64 | x86_64 (musl) | AArch64 (musl) | i686 |
 |---------:|------|------|------|------|------|
+| 23.1.0 | [![][dl]][r-23.1.0] [files][f-23.1.0-linux-x86_64] | [![][dl]][r-23.1.0] [files][f-23.1.0-linux-aarch64] | [![][dl]][r-23.1.0] [files][f-23.1.0-linux-x86_64-musl] | [![][dl]][r-23.1.0] [files][f-23.1.0-linux-aarch64-musl] | [![][dl]][r-23.1.0] [files][f-23.1.0-linux-i686] |
 | 22.1.0 | [![][dl]][r-22.1.0] [files][f-22.1.0-linux-x86_64] | [![][dl]][r-22.1.0] [files][f-22.1.0-linux-aarch64] | [![][dl]][r-22.1.0] [files][f-22.1.0-linux-x86_64-musl] | [![][dl]][r-22.1.0] [files][f-22.1.0-linux-aarch64-musl] | [![][dl]][r-22.1.0] [files][f-22.1.0-linux-i686] |
 | 21.1.4 | [![][dl]][r-21.1.4] [files][f-21.1.4-linux-x86_64] | [![][dl]][r-21.1.4] [files][f-21.1.4-linux-aarch64] | [![][dl]][r-21.1.4] [files][f-21.1.4-linux-x86_64-musl] | [![][dl]][r-21.1.4] [files][f-21.1.4-linux-aarch64-musl] | [![][dl]][r-21.1.4] [files][f-21.1.4-linux-i686] |
 | 20.1.8 | [![][dl]][r-20.1.8] [files][f-20.1.8-linux-x86_64] | [![][dl]][r-20.1.8] [files][f-20.1.8-linux-aarch64] | [![][dl]][r-20.1.8] [files][f-20.1.8-linux-x86_64-musl] | [![][dl]][r-20.1.8] [files][f-20.1.8-linux-aarch64-musl] | [![][dl]][r-20.1.8] [files][f-20.1.8-linux-i686] |
@@ -57,6 +59,7 @@ Prebuilt LLVM archives with full C/C++ API, clang, and LLD for multiple platform
 
 | Version | ARM64 | x86_64 |
 |---------:|------|------|
+| 23.1.0 | [![][dl]][r-23.1.0] [files][f-23.1.0-macos-aarch64] | [![][dl]][r-23.1.0] [files][f-23.1.0-macos-x86_64] |
 | 22.1.0 | [![][dl]][r-22.1.0] [files][f-22.1.0-macos-aarch64] | [![][dl]][r-22.1.0] [files][f-22.1.0-macos-x86_64] |
 | 21.1.4 | [![][dl]][r-21.1.4] [files][f-21.1.4-macos-aarch64] | [![][dl]][r-21.1.4] [files][f-21.1.4-macos-x86_64] |
 | 20.1.8 | [![][dl]][r-20.1.8] [files][f-20.1.8-macos-aarch64] | [![][dl]][r-20.1.8] [files][f-20.1.8-macos-x86_64] |
@@ -75,6 +78,7 @@ Prebuilt LLVM archives with full C/C++ API, clang, and LLD for multiple platform
 
 | Version | x64 MSVC | x64 GNU | ARM64 MSVC | i686 MSVC | i686 GNU |
 |---------:|------|------|------|------|------|
+| 23.1.0 | [![][dl]][r-23.1.0] [files][f-23.1.0-windows-msvc] | [![][dl]][r-23.1.0] [files][f-23.1.0-windows-gnu] | [![][dl]][r-23.1.0] [files][f-23.1.0-windows-aarch64-msvc] | [![][dl]][r-23.1.0] [files][f-23.1.0-windows-i686-msvc] | [![][dl]][r-23.1.0] [files][f-23.1.0-windows-i686-gnu] |
 | 22.1.0 | [![][dl]][r-22.1.0] [files][f-22.1.0-windows-msvc] | [![][dl]][r-22.1.0] [files][f-22.1.0-windows-gnu] | [![][dl]][r-22.1.0] [files][f-22.1.0-windows-aarch64-msvc] | [![][dl]][r-22.1.0] [files][f-22.1.0-windows-i686-msvc] | [![][dl]][r-22.1.0] [files][f-22.1.0-windows-i686-gnu] |
 | 21.1.4 | [![][dl]][r-21.1.4] [files][f-21.1.4-windows-msvc] | [![][dl]][r-21.1.4] [files][f-21.1.4-windows-gnu] | [![][dl]][r-21.1.4] [files][f-21.1.4-windows-aarch64-msvc] | [![][dl]][r-21.1.4] [files][f-21.1.4-windows-i686-msvc] | [![][dl]][r-21.1.4] [files][f-21.1.4-windows-i686-gnu] |
 | 20.1.8 | [![][dl]][r-20.1.8] [files][f-20.1.8-windows-msvc] | [![][dl]][r-20.1.8] [files][f-20.1.8-windows-gnu] | [![][dl]][r-20.1.8] [files][f-20.1.8-windows-aarch64-msvc] | [![][dl]][r-20.1.8] [files][f-20.1.8-windows-i686-msvc] | [![][dl]][r-20.1.8] [files][f-20.1.8-windows-i686-gnu] |
@@ -93,6 +97,7 @@ Prebuilt LLVM archives with full C/C++ API, clang, and LLD for multiple platform
 
 | Version | FreeBSD x86_64 | FreeBSD i686 | NetBSD x86_64 | NetBSD AArch64 | NetBSD i686 | OpenBSD x86_64 | OpenBSD AArch64 | OpenBSD i686 |
 |---------:|------|------|------|------|------|------|------|------|
+| [23.1.0][r-23.1.0] | [files][f-23.1.0-freebsd-x86_64] | [files][f-23.1.0-freebsd-i686] | [files][f-23.1.0-netbsd-x86_64] | [files][f-23.1.0-netbsd-aarch64] | [files][f-23.1.0-netbsd-i686] | [files][f-23.1.0-openbsd-x86_64] | [files][f-23.1.0-openbsd-aarch64] | [files][f-23.1.0-openbsd-i686] |
 | [22.1.0][r-22.1.0] | [files][f-22.1.0-freebsd-x86_64] | [files][f-22.1.0-freebsd-i686] | [files][f-22.1.0-netbsd-x86_64] | [files][f-22.1.0-netbsd-aarch64] | [files][f-22.1.0-netbsd-i686] | [files][f-22.1.0-openbsd-x86_64] | [files][f-22.1.0-openbsd-aarch64] | [files][f-22.1.0-openbsd-i686] |
 | [21.1.4][r-21.1.4] | [files][f-21.1.4-freebsd-x86_64] | [files][f-21.1.4-freebsd-i686] | [files][f-21.1.4-netbsd-x86_64] | [files][f-21.1.4-netbsd-aarch64] | [files][f-21.1.4-netbsd-i686] | [files][f-21.1.4-openbsd-x86_64] | [files][f-21.1.4-openbsd-aarch64] | [files][f-21.1.4-openbsd-i686] |
 | [20.1.8][r-20.1.8] | [files][f-20.1.8-freebsd-x86_64] | [files][f-20.1.8-freebsd-i686] | [files][f-20.1.8-netbsd-x86_64] | [files][f-20.1.8-netbsd-aarch64] | [files][f-20.1.8-netbsd-i686] | [files][f-20.1.8-openbsd-x86_64] | [files][f-20.1.8-openbsd-aarch64] | [files][f-20.1.8-openbsd-i686] |
@@ -125,7 +130,7 @@ This first tries to download a prebuilt archive from this project's releases. If
 > **Versioning.** `@v1` tracks the latest `v1.x` action release and receives
 > backward-compatible fixes automatically. Pin to an exact release (e.g.
 > `@v1.0.0`) for fully reproducible builds. Action releases use low major
-> versions (`v1`, `v2`, …); the high-numbered `v10.0.1`…`v22.1.0` tags are the
+> versions (`v1`, `v2`, …); the high-numbered `v10.0.1`…`v23.1.0` tags are the
 > prebuilt LLVM archive releases, not action versions.
 
 #### Inputs
@@ -248,7 +253,7 @@ llvm-full = { version = "0.1", features = ["llvm18-1"] }
 ```
 
 Available features: `llvm10-0`, `llvm11-0`, `llvm12-0`, `llvm13-0`, `llvm14-0`,
-`llvm15-0`, `llvm16-0`, `llvm17-0`, `llvm18-1`, `llvm19-1`, `llvm20-1`, `llvm21-1`, `llvm22-1`.
+`llvm15-0`, `llvm16-0`, `llvm17-0`, `llvm18-1`, `llvm19-1`, `llvm20-1`, `llvm21-1`, `llvm22-1`, `llvm23-1`.
 
 The build script automatically downloads and extracts the correct LLVM archive for your target platform, and sets up `cargo:rustc-link-search` and `DEP_LLVM_FULL_ROOT` for downstream crates.
 
@@ -334,6 +339,7 @@ LLVM is distributed under the [Apache License 2.0 with LLVM Exceptions](https://
 
 [dl]: https://img.shields.io/badge/download-blue
 
+[b-23.1.0]: https://github.com/yasuo-ozu/llvm-full/actions/workflows/build.yml/badge.svg?branch=b23.1.0
 [b-22.1.0]: https://github.com/yasuo-ozu/llvm-full/actions/workflows/build.yml/badge.svg?branch=b22.1.0
 [b-21.1.4]: https://github.com/yasuo-ozu/llvm-full/actions/workflows/build.yml/badge.svg?branch=b21.1.4
 [b-20.1.8]: https://github.com/yasuo-ozu/llvm-full/actions/workflows/build.yml/badge.svg?branch=b20.1.8
@@ -347,6 +353,7 @@ LLVM is distributed under the [Apache License 2.0 with LLVM Exceptions](https://
 [b-12.0.1]: https://github.com/yasuo-ozu/llvm-full/actions/workflows/build.yml/badge.svg?branch=b12.0.1
 [b-11.0.1]: https://github.com/yasuo-ozu/llvm-full/actions/workflows/build.yml/badge.svg?branch=b11.0.1
 [b-10.0.1]: https://github.com/yasuo-ozu/llvm-full/actions/workflows/build.yml/badge.svg?branch=b10.0.1
+[w-23.1.0]: https://github.com/yasuo-ozu/llvm-full/actions/workflows/build.yml?query=branch%3Ab23.1.0
 [w-22.1.0]: https://github.com/yasuo-ozu/llvm-full/actions/workflows/build.yml?query=branch%3Ab22.1.0
 [w-21.1.4]: https://github.com/yasuo-ozu/llvm-full/actions/workflows/build.yml?query=branch%3Ab21.1.4
 [w-20.1.8]: https://github.com/yasuo-ozu/llvm-full/actions/workflows/build.yml?query=branch%3Ab20.1.8
@@ -361,6 +368,7 @@ LLVM is distributed under the [Apache License 2.0 with LLVM Exceptions](https://
 [w-11.0.1]: https://github.com/yasuo-ozu/llvm-full/actions/workflows/build.yml?query=branch%3Ab11.0.1
 [w-10.0.1]: https://github.com/yasuo-ozu/llvm-full/actions/workflows/build.yml?query=branch%3Ab10.0.1
 
+[r-23.1.0]: https://github.com/yasuo-ozu/llvm-full/releases/tag/v23.1.0
 [r-22.1.0]: https://github.com/yasuo-ozu/llvm-full/releases/tag/v22.1.0
 [r-21.1.4]: https://github.com/yasuo-ozu/llvm-full/releases/tag/v21.1.4
 [r-20.1.8]: https://github.com/yasuo-ozu/llvm-full/releases/tag/v20.1.8
@@ -375,6 +383,18 @@ LLVM is distributed under the [Apache License 2.0 with LLVM Exceptions](https://
 [r-11.0.1]: https://github.com/yasuo-ozu/llvm-full/releases/tag/v11.0.1
 [r-10.0.1]: https://github.com/yasuo-ozu/llvm-full/releases/tag/v10.0.1
 
+[f-23.1.0-linux-x86_64]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-linux-x86_64.txt
+[f-23.1.0-linux-aarch64]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-linux-aarch64.txt
+[f-23.1.0-linux-x86_64-musl]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-linux-x86_64-musl.txt
+[f-23.1.0-linux-aarch64-musl]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-linux-aarch64-musl.txt
+[f-23.1.0-linux-i686]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-linux-i686.txt
+[f-23.1.0-macos-aarch64]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-macos-aarch64.txt
+[f-23.1.0-macos-x86_64]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-macos-x86_64.txt
+[f-23.1.0-windows-msvc]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-windows-msvc.txt
+[f-23.1.0-windows-gnu]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-windows-gnu.txt
+[f-23.1.0-windows-aarch64-msvc]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-windows-aarch64-msvc.txt
+[f-23.1.0-windows-i686-msvc]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-windows-i686-msvc.txt
+[f-23.1.0-windows-i686-gnu]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-windows-i686-gnu.txt
 [f-22.1.0-linux-x86_64]: https://github.com/yasuo-ozu/llvm-full/blob/b22.1.0/files-v22.1.0-linux-x86_64.txt
 [f-22.1.0-linux-aarch64]: https://github.com/yasuo-ozu/llvm-full/blob/b22.1.0/files-v22.1.0-linux-aarch64.txt
 [f-22.1.0-linux-x86_64-musl]: https://github.com/yasuo-ozu/llvm-full/blob/b22.1.0/files-v22.1.0-linux-x86_64-musl.txt
@@ -532,6 +552,14 @@ LLVM is distributed under the [Apache License 2.0 with LLVM Exceptions](https://
 [f-10.0.1-windows-i686-msvc]: https://github.com/yasuo-ozu/llvm-full/blob/b10.0.1/files-v10.0.1-windows-i686-msvc.txt
 [f-10.0.1-windows-i686-gnu]: https://github.com/yasuo-ozu/llvm-full/blob/b10.0.1/files-v10.0.1-windows-i686-gnu.txt
 
+[f-23.1.0-freebsd-x86_64]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-freebsd-x86_64.txt
+[f-23.1.0-freebsd-i686]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-freebsd-i686.txt
+[f-23.1.0-netbsd-x86_64]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-netbsd-x86_64.txt
+[f-23.1.0-netbsd-aarch64]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-netbsd-aarch64.txt
+[f-23.1.0-netbsd-i686]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-netbsd-i686.txt
+[f-23.1.0-openbsd-x86_64]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-openbsd-x86_64.txt
+[f-23.1.0-openbsd-aarch64]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-openbsd-aarch64.txt
+[f-23.1.0-openbsd-i686]: https://github.com/yasuo-ozu/llvm-full/blob/b23.1.0/files-v23.1.0-openbsd-i686.txt
 [f-22.1.0-freebsd-x86_64]: https://github.com/yasuo-ozu/llvm-full/blob/b22.1.0/files-v22.1.0-freebsd-x86_64.txt
 [f-22.1.0-freebsd-i686]: https://github.com/yasuo-ozu/llvm-full/blob/b22.1.0/files-v22.1.0-freebsd-i686.txt
 [f-22.1.0-netbsd-x86_64]: https://github.com/yasuo-ozu/llvm-full/blob/b22.1.0/files-v22.1.0-netbsd-x86_64.txt
